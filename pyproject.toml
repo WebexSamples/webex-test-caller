@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webex-test-caller"
+version = "0.1.0"
+description = "SDK-based Webex test caller for contact centers"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "playwright>=1.55,<2",
+    "requests>=2.32",
+    "soundfile>=0.13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+webex-test-caller = "byova_e2e.cli:main"
+byova-e2e = "byova_e2e.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

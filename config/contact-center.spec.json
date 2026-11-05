@@ -1,0 +1,26 @@
+{
+  "$schema": "./byova-e2e.schema.json",
+  "version": 1,
+  "use": {
+    "headless": true,
+    "requireGatewayEvents": false
+  },
+  "tests": [
+    {
+      "id": "request-response",
+      "title": "contact center responds to caller speech",
+      "steps": [
+        {"action": "speak", "text": "Hello, I need help with my account."},
+        {"expect": {"outcome": "response", "responsePrompts": 1}}
+      ]
+    },
+    {
+      "id": "dtmf-menu",
+      "title": "contact center responds to menu digit 1",
+      "steps": [
+        {"action": "dtmf", "digit": "1", "durationMs": 500},
+        {"expect": {"outcome": "response", "responsePrompts": 1}}
+      ]
+    }
+  ]
+}
