@@ -50,7 +50,6 @@ from .runner import BrowserRunner, RunFailure
 
 DESTINATION_PATTERN = re.compile(r"^(?:tel:)?\+?[0-9]{2,20}$")
 TOOL_ROOT = Path(__file__).resolve().parents[2]
-LEGACY_TOKEN_PATH = TOOL_ROOT / ".state" / "oauth-token.json"
 T = TypeVar("T")
 
 
@@ -297,7 +296,7 @@ class CLIError(ValueError):
 
 
 def _oauth_token_store() -> OAuthTokenStore:
-    return OAuthTokenStore(default_token_path(), legacy_path=LEGACY_TOKEN_PATH)
+    return OAuthTokenStore(default_token_path())
 
 
 def _run(args: argparse.Namespace) -> None:
@@ -360,7 +359,7 @@ def _run(args: argparse.Namespace) -> None:
         else (selected_test.expected_outcome if selected_test else None)
     )
     direct_gateway_events_url = args.gateway_events_url or os.getenv(
-        "BYOVA_E2E_GATEWAY_EVENTS_URL"
+        "WEBEX_TEST_CALLER_GATEWAY_EVENTS_URL"
     )
     gateway_tunnel_config, gateway_events_url = _gateway_event_connection(
         args,
@@ -421,7 +420,7 @@ def _run(args: argparse.Namespace) -> None:
     if require_gateway_events and not gateway_events_url:
         raise CLIError(
             "Gateway event assertions require --gateway-events-url or "
-            "BYOVA_E2E_GATEWAY_EVENTS_URL"
+            "WEBEX_TEST_CALLER_GATEWAY_EVENTS_URL"
         )
     if require_gateway_events and expected_outcome is None:
         raise CLIError(
@@ -444,7 +443,7 @@ def _run(args: argparse.Namespace) -> None:
             raise CLIError("--segment-pause-ms must be greater than zero")
 
     token = access_token_for_run(_oauth_token_store())
-    with tempfile.TemporaryDirectory(prefix="byova-e2e-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="webex-test-caller-") as temp_dir:
         temp_path = Path(temp_dir)
         if selected_test is not None:
             audio_assets: list[AudioAsset] = []
@@ -658,26 +657,26 @@ def _gateway_event_connection(
 ) -> tuple[SSMPortForwardConfig | None, str | None]:
     """Resolve a direct URL or a loopback-only SSM event connection."""
     target = args.gateway_events_ssm_target or os.getenv(
-        "BYOVA_E2E_GATEWAY_EVENTS_SSM_TARGET"
+        "WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_TARGET"
     )
     remote_host = args.gateway_events_ssm_host or os.getenv(
-        "BYOVA_E2E_GATEWAY_EVENTS_SSM_HOST"
+        "WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_HOST"
     )
     remote_port = _configured_port(
         args.gateway_events_ssm_remote_port,
-        "BYOVA_E2E_GATEWAY_EVENTS_SSM_REMOTE_PORT",
+        "WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_REMOTE_PORT",
         8080,
     )
     local_port = _configured_port(
         args.gateway_events_ssm_local_port,
-        "BYOVA_E2E_GATEWAY_EVENTS_SSM_LOCAL_PORT",
+        "WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_LOCAL_PORT",
         18080,
     )
     region = args.gateway_events_ssm_region or os.getenv(
-        "BYOVA_E2E_GATEWAY_EVENTS_SSM_REGION"
+        "WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_REGION"
     )
     profile = args.gateway_events_ssm_profile or os.getenv(
-        "BYOVA_E2E_GATEWAY_EVENTS_SSM_PROFILE"
+        "WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_PROFILE"
     )
     configured_values = (
         target,
@@ -686,8 +685,8 @@ def _gateway_event_connection(
         args.gateway_events_ssm_local_port,
         region,
         profile,
-        os.getenv("BYOVA_E2E_GATEWAY_EVENTS_SSM_REMOTE_PORT"),
-        os.getenv("BYOVA_E2E_GATEWAY_EVENTS_SSM_LOCAL_PORT"),
+        os.getenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_REMOTE_PORT"),
+        os.getenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_LOCAL_PORT"),
     )
     if not any(value is not None for value in configured_values):
         return None, direct_url

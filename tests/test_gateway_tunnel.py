@@ -5,7 +5,7 @@ import socket
 import subprocess
 
 import pytest
-from byova_e2e.gateway_tunnel import (
+from webex_test_caller.gateway_tunnel import (
     GatewayTunnelError,
     SSMPortForward,
     SSMPortForwardConfig,
@@ -92,7 +92,7 @@ def test_tunnel_requires_aws_cli_and_session_manager_plugin(monkeypatch) -> None
         target="i-0123456789abcdef0",
         remote_host="gateway.internal.example",
     )
-    monkeypatch.setattr("byova_e2e.gateway_tunnel.shutil.which", lambda _name: None)
+    monkeypatch.setattr("webex_test_caller.gateway_tunnel.shutil.which", lambda _name: None)
 
     with pytest.raises(GatewayTunnelError, match="AWS CLI is required"):
         SSMPortForward(config).start()
@@ -104,10 +104,10 @@ def test_tunnel_rejects_an_occupied_loopback_port(monkeypatch) -> None:
         remote_host="gateway.internal.example",
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
+        "webex_test_caller.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel._local_port_available", lambda _port: False
+        "webex_test_caller.gateway_tunnel._local_port_available", lambda _port: False
     )
 
     with pytest.raises(GatewayTunnelError, match="already in use"):
@@ -142,17 +142,17 @@ def test_tunnel_starts_without_a_shell_and_is_stopped(monkeypatch) -> None:
         return FakeProcess()
 
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
+        "webex_test_caller.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel._local_port_available", lambda _port: True
+        "webex_test_caller.gateway_tunnel._local_port_available", lambda _port: True
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel._local_port_ready", lambda _port: True
+        "webex_test_caller.gateway_tunnel._local_port_ready", lambda _port: True
     )
-    monkeypatch.setattr("byova_e2e.gateway_tunnel.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("webex_test_caller.gateway_tunnel.subprocess.Popen", fake_popen)
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel.os.killpg",
+        "webex_test_caller.gateway_tunnel.os.killpg",
         lambda pid, sent_signal: captured.update(
             {"terminated_pid": pid, "terminated_signal": sent_signal}
         ),
@@ -189,12 +189,12 @@ def test_tunnel_reports_early_process_output(monkeypatch) -> None:
         return FailedProcess()
 
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
+        "webex_test_caller.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel._local_port_available", lambda _port: True
+        "webex_test_caller.gateway_tunnel._local_port_available", lambda _port: True
     )
-    monkeypatch.setattr("byova_e2e.gateway_tunnel.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("webex_test_caller.gateway_tunnel.subprocess.Popen", fake_popen)
 
     with pytest.raises(GatewayTunnelError, match="Session Manager could not connect"):
         SSMPortForward(config).start()
@@ -225,20 +225,20 @@ def test_tunnel_timeout_stops_process_and_preserves_cleanup(monkeypatch) -> None
             captured["killed"] = True
 
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
+        "webex_test_caller.gateway_tunnel.shutil.which", lambda name: f"/usr/bin/{name}"
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel._local_port_available", lambda _port: True
+        "webex_test_caller.gateway_tunnel._local_port_available", lambda _port: True
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel._local_port_ready", lambda _port: False
+        "webex_test_caller.gateway_tunnel._local_port_ready", lambda _port: False
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel.subprocess.Popen",
+        "webex_test_caller.gateway_tunnel.subprocess.Popen",
         lambda _command, **_kwargs: HungProcess(),
     )
     monkeypatch.setattr(
-        "byova_e2e.gateway_tunnel.os.killpg",
+        "webex_test_caller.gateway_tunnel.os.killpg",
         lambda _pid, sent_signal: captured.setdefault("signals", []).append(
             sent_signal
         ),

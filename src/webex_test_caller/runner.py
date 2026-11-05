@@ -884,7 +884,7 @@ class BrowserRunner:
     def _command(self, page: Any, command: str, argument: Any = None) -> None:
         try:
             page.evaluate(
-                "payload => window.byovaE2E[payload.command](payload.argument)",
+                "payload => window.webexTestCaller[payload.command](payload.argument)",
                 {"command": command, "argument": argument},
             )
         except PlaywrightError as error:

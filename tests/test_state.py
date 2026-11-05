@@ -1,4 +1,4 @@
-from byova_e2e.state import PromptGate
+from webex_test_caller.state import PromptGate
 
 
 def test_prompt_gate_requires_observed_remote_audio() -> None:

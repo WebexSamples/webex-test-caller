@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import soundfile as sf
-from byova_e2e.audio import (
+from webex_test_caller.audio import (
     TARGET_SAMPLE_RATE,
     AudioPreparationError,
     prepare_wav,
@@ -31,7 +31,7 @@ def test_render_text_normalises_macos_say_output(tmp_path, monkeypatch) -> None:
         sf.write(output, np.ones(8_000), 8_000, format="AIFF", subtype="PCM_16")
         return __import__("subprocess").CompletedProcess(command, 0, "", "")
 
-    monkeypatch.setattr("byova_e2e.audio.subprocess.run", fake_say)
+    monkeypatch.setattr("webex_test_caller.audio.subprocess.run", fake_say)
     prepared = render_text("test", "Samantha", tmp_path / "caller.wav")
 
     samples, sample_rate = sf.read(prepared.path, always_2d=True)
@@ -45,7 +45,7 @@ def test_render_text_reports_macos_say_failure(tmp_path, monkeypatch) -> None:
             command, 1, "", "Unknown voice"
         )
 
-    monkeypatch.setattr("byova_e2e.audio.subprocess.run", failed_say)
+    monkeypatch.setattr("webex_test_caller.audio.subprocess.run", failed_say)
 
     with pytest.raises(AudioPreparationError, match="could not render"):
         render_text("test", "unknown", tmp_path / "caller.wav")
@@ -57,7 +57,7 @@ def test_render_text_sequence_inserts_exact_pause(tmp_path, monkeypatch) -> None
         sf.write(output, np.ones(8_000), 8_000, format="AIFF", subtype="PCM_16")
         return __import__("subprocess").CompletedProcess(command, 0, "", "")
 
-    monkeypatch.setattr("byova_e2e.audio.subprocess.run", fake_say)
+    monkeypatch.setattr("webex_test_caller.audio.subprocess.run", fake_say)
     prepared = render_text_sequence(
         ["I'd like to book", "a room in San Jose"],
         1800,

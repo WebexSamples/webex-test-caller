@@ -1,6 +1,6 @@
 import pytest
-from byova_e2e.gateway_events import GatewayEventError, GatewayEventObserver
-from byova_e2e.models import ExpectedOutcome
+from webex_test_caller.gateway_events import GatewayEventError, GatewayEventObserver
+from webex_test_caller.models import ExpectedOutcome
 
 
 class _Snapshots:

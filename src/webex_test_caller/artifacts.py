@@ -17,6 +17,6 @@ def write_artifact(directory: Path, payload: dict[str, Any]) -> Path:
     """Write a readable, token-free result file for a caller run."""
     directory.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = directory / f"byova-e2e-{timestamp}.json"
+    path = directory / f"webex-test-caller-{timestamp}.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     return path

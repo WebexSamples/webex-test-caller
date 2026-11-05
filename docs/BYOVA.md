@@ -59,11 +59,11 @@ active, allowing the next action to exercise caller speech during playback.
 `session-end` and `transfer` are terminal expectations and must be the final
 step. Test plans follow Playwright conventions: top-level `use` defaults, named
 `tests`, ordered `steps`, and explicit `expect` assertions. Reference
-`config/byova-e2e.schema.json` for editor validation and autocomplete.
+`config/webex-test-caller.schema.json` for editor validation and autocomplete.
 
 ```json
 {
-  "$schema": "./byova-e2e.schema.json",
+  "$schema": "./webex-test-caller.schema.json",
   "version": 1,
   "use": {
     "headless": true,
@@ -176,7 +176,7 @@ asserts its exact `SESSION_END` or `TRANSFER_TO_AGENT` event. A normal response
 fails if either terminal event appears.
 
 ```bash
-export BYOVA_E2E_GATEWAY_EVENTS_URL=http://127.0.0.1:8080
+export WEBEX_TEST_CALLER_GATEWAY_EVENTS_URL=http://127.0.0.1:8080
 ```
 
 `--gateway-events-url` overrides the environment for one run. Keep the
@@ -191,9 +191,9 @@ Supply deployment-specific identifiers through the ignored `.env` file or the
 equivalent CLI options; do not put them in a committed test plan.
 
 ```bash
-export BYOVA_E2E_GATEWAY_EVENTS_SSM_TARGET=i-0123456789abcdef0
-export BYOVA_E2E_GATEWAY_EVENTS_SSM_HOST=10.0.1.25
-export BYOVA_E2E_GATEWAY_EVENTS_SSM_REGION=us-east-1
+export WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_TARGET=i-0123456789abcdef0
+export WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_HOST=10.0.1.25
+export WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_REGION=us-east-1
 
 webex-test-caller run \
   --destination 9999 \
@@ -204,8 +204,8 @@ webex-test-caller run \
 The runner starts `AWS-StartPortForwardingSessionToRemoteHost` without a shell,
 waits for `http://127.0.0.1:18080`, reads `/api/connections` through that
 loopback listener, and terminates the session after the run. Override the
-private port with `BYOVA_E2E_GATEWAY_EVENTS_SSM_REMOTE_PORT` and the loopback
-port with `BYOVA_E2E_GATEWAY_EVENTS_SSM_LOCAL_PORT`. The corresponding CLI
+private port with `WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_REMOTE_PORT` and the loopback
+port with `WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_LOCAL_PORT`. The corresponding CLI
 options use the `--gateway-events-ssm-*` prefix. A direct gateway-events URL and
 an SSM tunnel are mutually exclusive.
 
@@ -225,7 +225,7 @@ webex-test-caller validate --config config/gecx-regression.spec.json --list
 ```
 
 The plan requires correlated gateway events. Before running it, set either
-`BYOVA_E2E_GATEWAY_EVENTS_URL` to a restricted monitoring endpoint or configure
+`WEBEX_TEST_CALLER_GATEWAY_EVENTS_URL` to a restricted monitoring endpoint or configure
 the SSM tunnel above for the same gateway deployment being called.
 
 Run one test at a time against the dedicated non-production entry point:

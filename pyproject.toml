@@ -20,8 +20,7 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-webex-test-caller = "byova_e2e.cli:main"
-byova-e2e = "byova_e2e.cli:main"
+webex-test-caller = "webex_test_caller.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

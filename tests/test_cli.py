@@ -3,14 +3,35 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from byova_e2e.audio import PreparedAudio
-from byova_e2e.cli import CLIError, _run, build_parser, main
-from byova_e2e.models import (
+from webex_test_caller.audio import PreparedAudio
+from webex_test_caller.cli import (
+    CLIError,
+    _gateway_event_connection,
+    _run,
+    build_parser,
+    main,
+)
+from webex_test_caller.models import (
     ExpectedOutcome,
     RunAction,
     RunDtmfAction,
     RunExpectation,
 )
+
+
+def test_gateway_tunnel_uses_caller_environment_settings(monkeypatch) -> None:
+    monkeypatch.setenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_TARGET", "i-0123456789abcdef0")
+    monkeypatch.setenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_HOST", "10.0.1.25")
+    monkeypatch.setenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_LOCAL_PORT", "18123")
+    args = build_parser().parse_args(
+        ["run", "--destination", "1234", "--text", "hello"]
+    )
+
+    config, url = _gateway_event_connection(args, None)
+
+    assert config.target == "i-0123456789abcdef0"
+    assert config.remote_host == "10.0.1.25"
+    assert url == "http://127.0.0.1:18123"
 
 
 def test_live_runs_have_no_cli_browser_override_by_default() -> None:
@@ -141,11 +162,11 @@ def test_named_multi_turn_test_prepares_every_action(
         def run(self):
             return {}
 
-    monkeypatch.setattr("byova_e2e.cli.render_text", fake_render_text)
-    monkeypatch.setattr("byova_e2e.cli.access_token_for_run", lambda _store: "token")
-    monkeypatch.setattr("byova_e2e.cli.BrowserRunner", FakeRunner)
+    monkeypatch.setattr("webex_test_caller.cli.render_text", fake_render_text)
+    monkeypatch.setattr("webex_test_caller.cli.access_token_for_run", lambda _store: "token")
+    monkeypatch.setattr("webex_test_caller.cli.BrowserRunner", FakeRunner)
     monkeypatch.setattr(
-        "byova_e2e.cli.write_artifact",
+        "webex_test_caller.cli.write_artifact",
         lambda _directory, _payload: tmp_path / "artifact.json",
     )
     args = build_parser().parse_args(
@@ -210,10 +231,10 @@ def test_named_dtmf_test_requires_no_prepared_audio(
         def run(self):
             return {}
 
-    monkeypatch.setattr("byova_e2e.cli.access_token_for_run", lambda _store: "token")
-    monkeypatch.setattr("byova_e2e.cli.BrowserRunner", FakeRunner)
+    monkeypatch.setattr("webex_test_caller.cli.access_token_for_run", lambda _store: "token")
+    monkeypatch.setattr("webex_test_caller.cli.BrowserRunner", FakeRunner)
     monkeypatch.setattr(
-        "byova_e2e.cli.write_artifact",
+        "webex_test_caller.cli.write_artifact",
         lambda _directory, _payload: tmp_path / "artifact.json",
     )
     args = build_parser().parse_args(
@@ -265,7 +286,7 @@ def test_gateway_event_plan_requires_monitoring_url(
         ),
         encoding="utf-8",
     )
-    monkeypatch.delenv("BYOVA_E2E_GATEWAY_EVENTS_URL", raising=False)
+    monkeypatch.delenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_URL", raising=False)
     args = build_parser().parse_args(
         [
             "run",
@@ -299,11 +320,11 @@ def test_gateway_event_url_enables_exact_outcome_assertions(
         def run(self):
             return {}
 
-    monkeypatch.setattr("byova_e2e.cli.render_text", fake_render_text)
-    monkeypatch.setattr("byova_e2e.cli.access_token_for_run", lambda _store: "token")
-    monkeypatch.setattr("byova_e2e.cli.BrowserRunner", FakeRunner)
+    monkeypatch.setattr("webex_test_caller.cli.render_text", fake_render_text)
+    monkeypatch.setattr("webex_test_caller.cli.access_token_for_run", lambda _store: "token")
+    monkeypatch.setattr("webex_test_caller.cli.BrowserRunner", FakeRunner)
     monkeypatch.setattr(
-        "byova_e2e.cli.write_artifact",
+        "webex_test_caller.cli.write_artifact",
         lambda _directory, _payload: tmp_path / "artifact.json",
     )
     args = build_parser().parse_args(
@@ -351,12 +372,12 @@ def test_ssm_tunnel_supplies_loopback_gateway_event_url(
         opened_tunnel = config
         yield
 
-    monkeypatch.setattr("byova_e2e.cli.render_text", fake_render_text)
-    monkeypatch.setattr("byova_e2e.cli.access_token_for_run", lambda _store: "token")
-    monkeypatch.setattr("byova_e2e.cli.BrowserRunner", FakeRunner)
-    monkeypatch.setattr("byova_e2e.cli.gateway_event_tunnel", fake_tunnel)
+    monkeypatch.setattr("webex_test_caller.cli.render_text", fake_render_text)
+    monkeypatch.setattr("webex_test_caller.cli.access_token_for_run", lambda _store: "token")
+    monkeypatch.setattr("webex_test_caller.cli.BrowserRunner", FakeRunner)
+    monkeypatch.setattr("webex_test_caller.cli.gateway_event_tunnel", fake_tunnel)
     monkeypatch.setattr(
-        "byova_e2e.cli.write_artifact",
+        "webex_test_caller.cli.write_artifact",
         lambda _directory, _payload: tmp_path / "artifact.json",
     )
     args = build_parser().parse_args(
@@ -388,7 +409,7 @@ def test_ssm_tunnel_supplies_loopback_gateway_event_url(
 
 
 def test_ssm_tunnel_rejects_partial_configuration(monkeypatch) -> None:
-    monkeypatch.delenv("BYOVA_E2E_GATEWAY_EVENTS_URL", raising=False)
+    monkeypatch.delenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_URL", raising=False)
     args = build_parser().parse_args(
         [
             "run",
@@ -408,7 +429,7 @@ def test_ssm_tunnel_rejects_partial_configuration(monkeypatch) -> None:
 
 
 def test_ssm_tunnel_rejects_direct_url_combination(monkeypatch) -> None:
-    monkeypatch.delenv("BYOVA_E2E_GATEWAY_EVENTS_URL", raising=False)
+    monkeypatch.delenv("WEBEX_TEST_CALLER_GATEWAY_EVENTS_URL", raising=False)
     args = build_parser().parse_args(
         [
             "run",

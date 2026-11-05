@@ -90,7 +90,7 @@ type CallingCall = {
 
 declare global {
   interface Window {
-    byovaE2E: {
+    webexTestCaller: {
       dial: () => Promise<void>;
       injectAudio: (request?: string | InjectionRequest) => Promise<void>;
       sendDtmf: (request: DtmfRequest) => Promise<void>;
@@ -422,7 +422,7 @@ class CallingMediaClient {
 }
 
 const client = new CallingMediaClient();
-window.byovaE2E = {
+window.webexTestCaller = {
   dial: () => client.dial(),
   injectAudio: (trigger) => client.injectAudio(trigger),
   sendDtmf: (request) => client.sendDtmf(request),

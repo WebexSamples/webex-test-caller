@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from byova_e2e.plan import load_plan
+from webex_test_caller.plan import load_plan
 
 
 @pytest.mark.parametrize("test_id", ["request-response", "dtmf-menu"])
@@ -24,7 +24,7 @@ def test_installed_cli_validates_from_outside_checkout(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "byova_e2e",
+            "webex_test_caller",
             "validate",
             "--config",
             str(root / "config/contact-center.spec.json"),

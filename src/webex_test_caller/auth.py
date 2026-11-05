@@ -21,7 +21,7 @@ AUTHORIZE_URL = "https://webexapis.com/v1/authorize"
 TOKEN_URL = "https://webexapis.com/v1/access_token"
 SCOPES = ("spark:xsi", "spark:calls_write", "spark:calls_read", "spark:webrtc_calling")
 TOKEN_EXPIRY_SKEW_SECONDS = 60
-TOKEN_PATH_ENVIRONMENT_VARIABLE = "BYOVA_E2E_WEBEX_TOKEN_PATH"
+TOKEN_PATH_ENVIRONMENT_VARIABLE = "WEBEX_TEST_CALLER_TOKEN_PATH"
 
 
 class OAuthError(RuntimeError):
@@ -40,7 +40,7 @@ def default_token_path() -> Path:
     state_root = Path(
         os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")
     ).expanduser()
-    return state_root / "byova-e2e" / "oauth-token.json"
+    return state_root / "webex-test-caller" / "oauth-token.json"
 
 
 def load_local_environment(path: Path) -> None:
@@ -65,9 +65,9 @@ def load_local_environment(path: Path) -> None:
         name, value = line.split("=", maxsplit=1)
         name = name.strip()
         value = value.strip()
-        if not name.startswith("BYOVA_E2E_"):
+        if not name.startswith("WEBEX_TEST_CALLER_"):
             raise OAuthError(
-                f"Only BYOVA_E2E_* variables are allowed in {path}:{number}"
+                f"Only WEBEX_TEST_CALLER_* variables are allowed in {path}:{number}"
             )
         if value[:1] in {'"', "'"} and value[-1:] == value[:1]:
             value = value[1:-1]
@@ -86,17 +86,17 @@ class OAuthCredentials:
     def from_environment(cls) -> OAuthCredentials:
         missing = [
             name
-            for name in ("BYOVA_E2E_WEBEX_CLIENT_ID", "BYOVA_E2E_WEBEX_CLIENT_SECRET")
+            for name in ("WEBEX_TEST_CALLER_CLIENT_ID", "WEBEX_TEST_CALLER_CLIENT_SECRET")
             if not os.environ.get(name)
         ]
         if missing:
             names = ", ".join(f"${name}" for name in missing)
             raise OAuthError(f"OAuth login requires {names}")
         return cls(
-            client_id=os.environ["BYOVA_E2E_WEBEX_CLIENT_ID"],
-            client_secret=os.environ["BYOVA_E2E_WEBEX_CLIENT_SECRET"],
+            client_id=os.environ["WEBEX_TEST_CALLER_CLIENT_ID"],
+            client_secret=os.environ["WEBEX_TEST_CALLER_CLIENT_SECRET"],
             redirect_uri=os.environ.get(
-                "BYOVA_E2E_WEBEX_REDIRECT_URI", "http://localhost:8765/oauth/callback"
+                "WEBEX_TEST_CALLER_REDIRECT_URI", "http://localhost:8765/oauth/callback"
             ),
         )
 
@@ -104,18 +104,13 @@ class OAuthCredentials:
 class OAuthTokenStore:
     """Persist refreshable OAuth credentials with owner-only file permissions."""
 
-    def __init__(self, path: Path, legacy_path: Path | None = None) -> None:
+    def __init__(self, path: Path) -> None:
         self.path = path
-        self.legacy_path = legacy_path
 
     def load(self) -> dict[str, Any] | None:
         if self.path.is_file():
             return self._load_path(self.path)
-        if self.legacy_path is None or not self.legacy_path.is_file():
-            return None
-        payload = self._load_path(self.legacy_path)
-        self.save(payload)
-        return payload
+        return None
 
     def _load_path(self, path: Path) -> dict[str, Any]:
         try:
@@ -200,12 +195,12 @@ def refresh_token(credentials: OAuthCredentials, refresh: str) -> dict[str, Any]
 
 def access_token_for_run(store: OAuthTokenStore) -> str:
     """Get a token override or a saved token, refreshing it when necessary."""
-    if override := os.environ.get("BYOVA_E2E_WEBEX_ACCESS_TOKEN"):
+    if override := os.environ.get("WEBEX_TEST_CALLER_ACCESS_TOKEN"):
         return override
     token = store.load()
     if token is None:
         raise OAuthError(
-            "No saved OAuth token. Run `webex-test-caller login`, or set $BYOVA_E2E_WEBEX_ACCESS_TOKEN."
+            "No saved OAuth token. Run `webex-test-caller login`, or set $WEBEX_TEST_CALLER_ACCESS_TOKEN."
         )
     expires_at = float(token.get("expires_at", 0))
     if expires_at > time.time() + TOKEN_EXPIRY_SKEW_SECONDS:
@@ -235,7 +230,7 @@ def complete_login(store: OAuthTokenStore, timeout_seconds: float) -> str:
             authorization_url(
                 credentials,
                 state,
-                os.environ.get("BYOVA_E2E_TEST_USER_EMAIL"),
+                os.environ.get("WEBEX_TEST_CALLER_TEST_USER_EMAIL"),
             )
         )
         code = callback.wait_for_code(state, timeout_seconds)

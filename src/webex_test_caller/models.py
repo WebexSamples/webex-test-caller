@@ -1,4 +1,4 @@
-"""Shared data models for BYOVA E2E caller runs."""
+"""Shared data models for Webex test caller runs."""
 
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ class RunConfig:
     steps: tuple[RunAction | RunDtmfAction | RunExpectation, ...] = ()
 
     def prepared_audio(self) -> tuple[AudioAsset, ...]:
-        """Return multi-step assets or the legacy single caller fixture."""
+        """Return multi-step assets or the single caller fixture."""
         if self.audio_assets:
             return self.audio_assets
         if self.audio_path is None:

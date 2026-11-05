@@ -3,8 +3,8 @@ from dataclasses import replace
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from byova_e2e.models import AudioAsset, RunConfig
-from byova_e2e.server import LocalRunServer
+from webex_test_caller.models import AudioAsset, RunConfig
+from webex_test_caller.server import LocalRunServer
 
 
 def _config(tmp_path: Path) -> RunConfig:

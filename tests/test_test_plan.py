@@ -3,14 +3,14 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from byova_e2e.models import ExpectedOutcome
-from byova_e2e.plan import (
+from webex_test_caller.models import ExpectedOutcome
+from webex_test_caller.plan import (
     ExpectStepDefinition,
     InputStepDefinition,
     load_plan,
     load_test,
 )
-from byova_e2e.plan import (
+from webex_test_caller.plan import (
     TestPlanError as PlanError,
 )
 

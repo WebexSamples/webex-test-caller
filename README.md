@@ -8,12 +8,33 @@ This is a source-installed reference application for controlled test calls. It
 uses a licensed Webex Calling user's line and that user's configured dial plan.
 It can dial an internal extension or an E.164 number reachable by that line.
 
-## Install
+## Prerequisites
 
-Use Python 3.10+ and Node.js 20.19+ or 22.12+. Webex Calling runs in Chromium;
-Node is only used to build the browser client. Text-to-speech uses the built-in
-macOS `say` command. On other platforms, use a WAV fixture or DTMF-only plan.
-The automated tests mock speech synthesis and do not place calls.
+- **Webex Calling organization and test user:** an organization licensed for Webex
+  Calling, with a dedicated Calling user provisioned with a location, extension,
+  and a working browser/soft-client registration. A free Webex account alone is
+  insufficient. See the official
+  [Calling authorization and registration guide](https://developer.webex.com/calling/docs/sdks/webex-calling-sdk-authorization-device-registration).
+- **Contact-center destination:** a test entry point reachable through that user's
+  dial plan, using an internal extension or E.164 number. Confirm the intended
+  IVR/agent flow answers a manual call first. Webex Contact Center tests require
+  its entry point and flow to be configured; a BYOVA gateway is needed only for
+  the optional BYOVA-specific scenarios.
+- **Webex OAuth integration:** a client ID and secret, redirect URI
+  `http://localhost:8765/oauth/callback`, and the Calling scopes listed below.
+  Authorize it as the dedicated test user.
+- **Local tools:** Python 3.10+, Node.js 20.19+ or 22.12+, npm, and Playwright's
+  Chromium browser (installed in the setup steps). The SDK runs in Chromium;
+  Node is used to build its browser client. The machine needs network access to
+  Webex authentication, Calling signaling, and media services.
+- **Text-to-speech for text tests:** macOS with the built-in `say` command and an
+  installed voice. The default is `Samantha`; list installed voices with
+  `say -v '?'` and select another with `--voice`. Check synthesis locally with
+  `say -v Samantha 'This is a test.'`. No cloud TTS account or API key is used.
+  On other platforms, supply a WAV generated with your own TTS/recording tool
+  using `--wav` or a plan's `play` action. DTMF-only plans require no TTS.
+
+## Install
 
 ```bash
 git clone https://github.com/WebexSamples/webex-test-caller.git
@@ -48,9 +69,8 @@ Keep this source checkout: editable installation and the browser build use its
    ```
 
 4. Put the integration's client ID and secret into the ignored `.env` file as
-   `BYOVA_E2E_WEBEX_CLIENT_ID` and `BYOVA_E2E_WEBEX_CLIENT_SECRET`. Set
-   `BYOVA_E2E_TEST_USER_EMAIL` to the dedicated caller's email. The historical
-   `BYOVA_E2E_` prefix is retained for compatibility.
+   `WEBEX_TEST_CALLER_CLIENT_ID` and `WEBEX_TEST_CALLER_CLIENT_SECRET`. Set
+   `WEBEX_TEST_CALLER_TEST_USER_EMAIL` to the dedicated caller's email.
 5. Authorize as that caller, using the URL printed by:
 
    ```bash
@@ -102,7 +122,7 @@ Use `speak` for macOS text or speech segments with exact pauses, `play` for a WA
 path relative to the plan, and `dtmf` for an IVR digit. Outcomes include
 `response`, `response-start`, `session-end`, and `transfer`. Plans can also assert
 prompt counts and maximum response latency. See the
-[schema](config/byova-e2e.schema.json) and
+[schema](config/webex-test-caller.schema.json) and
 [sample plan](config/contact-center.spec.json).
 
 Results in `.artifacts/` record status, timing, destination redaction, input
@@ -116,21 +136,20 @@ SSM tunnel to a private monitoring listener. They are not required for generic
 contact-center tests. The existing GECX and Local Audio DTMF plans are retained;
 see [BYOVA regression testing](docs/BYOVA.md).
 
-## Existing BYOVA caller users
+## OAuth storage
 
-The `byova-e2e` command, Python module `byova_e2e`, environment variable names,
-JSON format, and artifact filenames remain compatible. Both commands run the
-same application. Existing plan files can be used with an explicit `--config`.
+The application reads only `WEBEX_TEST_CALLER_*` settings from its local `.env`;
+explicit shell values take precedence. Keep that file owner-readable only and
+out of Git. Do not commit credentials, generated audio, or artifacts.
 
-Move your old `tools/byova_e2e/.env` to this checkout's `.env` locally and keep it
-owner-readable only. Do not commit credentials, generated audio, or artifacts.
-Token storage stays at `$XDG_STATE_HOME/byova-e2e/oauth-token.json` or
-`~/.local/state/byova-e2e/oauth-token.json` with owner-only permissions, so a
-valid saved login can be reused. If you still have a checkout-local
-`.state/oauth-token.json`, copy that `.state/` directory into this checkout
-before first use; the existing migration reads it there. Set
-`BYOVA_E2E_WEBEX_TOKEN_PATH` to an absolute path to override the shared location.
+`webex-test-caller login` saves tokens with owner-only permissions at
+`$XDG_STATE_HOME/webex-test-caller/oauth-token.json` or
+`~/.local/state/webex-test-caller/oauth-token.json`. Set
+`WEBEX_TEST_CALLER_TOKEN_PATH` to an absolute path to override this location.
 Refresh tokens are renewed and saved atomically when the access token expires.
+A temporary `WEBEX_TEST_CALLER_ACCESS_TOKEN` can instead authorize a single run
+without saving a token. Run `webex-test-caller login` before first use of the
+application's token store.
 
 ## Validate changes
 
@@ -142,8 +161,8 @@ npm --prefix web run build
 ```
 
 GitHub Actions runs the Python suite on 3.10 and 3.12 and builds/tests the browser
-client. These checks never authorize or dial a real call. Live testing requires
-your configured caller, route, and destination.
+client. Tests mock speech synthesis and never authorize or dial a real call.
+Live testing requires your configured caller, route, and destination.
 
 The inherited SDK dependency tree has outstanding audit advisories. See
 [dependency security status](SECURITY.md) for the extraction-time snapshot.

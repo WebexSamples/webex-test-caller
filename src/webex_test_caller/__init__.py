@@ -1,4 +1,4 @@
-"""Python orchestrator for browser-based Webex Calling BYOVA tests."""
+"""Python orchestrator for browser-based Webex contact-center tests."""
 
 from .models import RunConfig, RunEvent
 

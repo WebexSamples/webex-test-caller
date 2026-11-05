@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/WebexSamples/webex-test-caller/blob/main/config/byova-e2e.schema.json",
+  "$id": "https://github.com/WebexSamples/webex-test-caller/blob/main/config/webex-test-caller.schema.json",
   "title": "Webex caller test plan",
   "type": "object",
   "additionalProperties": false,

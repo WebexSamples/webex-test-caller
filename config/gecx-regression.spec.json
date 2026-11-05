@@ -1,5 +1,5 @@
 {
-  "$schema": "./byova-e2e.schema.json",
+  "$schema": "./webex-test-caller.schema.json",
   "version": 1,
   "use": {
     "headless": true,

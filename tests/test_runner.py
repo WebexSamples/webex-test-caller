@@ -4,8 +4,8 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from byova_e2e.gateway_events import GatewayEventError
-from byova_e2e.models import (
+from webex_test_caller.gateway_events import GatewayEventError
+from webex_test_caller.models import (
     AudioAsset,
     ExpectedOutcome,
     RunAction,
@@ -14,7 +14,7 @@ from byova_e2e.models import (
     RunEvent,
     RunExpectation,
 )
-from byova_e2e.runner import BrowserRunner, RunFailure
+from webex_test_caller.runner import BrowserRunner, RunFailure
 from playwright.sync_api import Error as PlaywrightError
 
 
@@ -104,8 +104,8 @@ def test_browser_failure_is_reported_without_masking_cleanup_error(
     tmp_path, monkeypatch
 ) -> None:
     server = _Server()
-    monkeypatch.setattr("byova_e2e.runner.LocalRunServer", lambda *_args: server)
-    monkeypatch.setattr("byova_e2e.runner.sync_playwright", _sync_playwright)
+    monkeypatch.setattr("webex_test_caller.runner.LocalRunServer", lambda *_args: server)
+    monkeypatch.setattr("webex_test_caller.runner.sync_playwright", _sync_playwright)
     runner = BrowserRunner(tmp_path, _config(tmp_path))
     monkeypatch.setattr(runner, "_build_frontend", lambda: tmp_path)
 
@@ -130,9 +130,9 @@ def test_failed_run_ends_call_before_browser_cleanup(tmp_path, monkeypatch) -> N
     def sync_playwright_with_dial_page():
         yield playwright
 
-    monkeypatch.setattr("byova_e2e.runner.LocalRunServer", lambda *_args: server)
+    monkeypatch.setattr("webex_test_caller.runner.LocalRunServer", lambda *_args: server)
     monkeypatch.setattr(
-        "byova_e2e.runner.sync_playwright", sync_playwright_with_dial_page
+        "webex_test_caller.runner.sync_playwright", sync_playwright_with_dial_page
     )
     runner = BrowserRunner(tmp_path, _config(tmp_path))
     monkeypatch.setattr(runner, "_build_frontend", lambda: tmp_path)
