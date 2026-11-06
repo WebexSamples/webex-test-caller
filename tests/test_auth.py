@@ -149,7 +149,7 @@ def test_refresh_response_without_refresh_token_keeps_previous_token(
 
 
 def test_complete_login_persists_access_and_refresh_tokens(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capsys
 ) -> None:
     store = OAuthTokenStore(tmp_path / "token.json")
     monkeypatch.setenv("WEBEX_TEST_CALLER_CLIENT_ID", "client")
@@ -166,6 +166,9 @@ def test_complete_login_persists_access_and_refresh_tokens(
 
     assert complete_login(store, 30) == str(store.path)
     assert store.load()["refresh_token"] == "refresh-token"
+    prompt = capsys.readouterr().out
+    assert "dedicated caller browser profile" in prompt
+    assert "WxCC Admin" not in prompt
 
 
 def test_complete_login_rejects_non_refreshable_authorization(

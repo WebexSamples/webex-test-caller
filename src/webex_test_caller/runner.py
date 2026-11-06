@@ -6,7 +6,7 @@ import subprocess
 import time
 from collections import deque
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -147,12 +147,17 @@ class BrowserRunner:
             event_history = list(self.events)
             if diagnostics:
                 raise RunFailure(
-                    f"{error}. Browser diagnostics: {diagnostics}", event_history
+                    f"{self._redact_browser_value(str(error))}. "
+                    f"Browser diagnostics: {diagnostics}",
+                    event_history,
                 ) from error
-            raise RunFailure(str(error), event_history) from error
+            raise RunFailure(
+                self._redact_browser_value(str(error)), event_history
+            ) from error
         except PlaywrightError as error:
             raise RunFailure(
-                f"Browser automation failed: {error}", list(self.events)
+                f"Browser automation failed: {self._redact_browser_value(str(error))}",
+                list(self.events),
             ) from error
         finally:
             server.close()
@@ -916,6 +921,9 @@ class BrowserRunner:
         event = server.next_event(max(timeout, 0.01))
         if event is None:
             return None
+        details = self._redact_browser_value(event.details)
+        if details != event.details:
+            event = replace(event, details=details)
         self.events.append(event)
         if event.name == "error":
             raise RunFailure(str(event.details.get("message", "Browser client failed")))
@@ -923,7 +931,19 @@ class BrowserRunner:
 
     def _record_console(self, source: str, message: str) -> None:
         if source in {"error", "warning", "pageerror"}:
-            self.browser_diagnostics.append(f"{source}: {message}")
+            self.browser_diagnostics.append(
+                f"{source}: {self._redact_browser_value(message)}"
+            )
+
+    def _redact_browser_value(self, value: Any) -> Any:
+        """Keep the run's access token out of SDK diagnostics and artifacts."""
+        if isinstance(value, str) and self.config.access_token:
+            return value.replace(self.config.access_token, "[REDACTED]")
+        if isinstance(value, dict):
+            return {key: self._redact_browser_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._redact_browser_value(item) for item in value]
+        return value
 
     def _record_failed_response(self, response: Any) -> None:
         parsed = urlsplit(response.url)
@@ -935,6 +955,8 @@ class BrowserRunner:
         if response.status < 400 and not is_mobius_device_request:
             return
         self.browser_diagnostics.append(
-            f"http {response.status} {response.request.method}: "
-            f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            self._redact_browser_value(
+                f"http {response.status} {response.request.method}: "
+                f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            )
         )

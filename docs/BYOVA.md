@@ -4,8 +4,12 @@ These optional scenarios exercise a BYOVA gateway through a configured Webex
 Contact Center flow. Ordinary contact-center calling needs no BYOVA gateway.
 First complete the [standalone app setup and caller authorization](../README.md).
 Run the following commands from the `webex-test-caller` checkout with its virtual
-environment active. Use your verified test entry point instead of the historical
-`9999` example destination.
+environment active. Set `TEST_DESTINATION` to your approved test extension or
+E.164 entry-point number before running any calling commands.
+
+```bash
+export TEST_DESTINATION=1234 # Replace with your configured test entry point.
+```
 
 The preserved GECX and Local Audio plans opt into gateway evidence. Configure the
 restricted monitoring endpoint or private tunnel described below before running
@@ -21,7 +25,7 @@ and 800 ms inside the default one-second GECX resume grace.
 
 ```bash
 webex-test-caller run \
-  --destination 9999 \
+  --destination "$TEST_DESTINATION" \
   --text-segment "I'd like to book" \
   --text-segment "a room in San Jose" \
   --segment-pause-ms 1800 \
@@ -132,8 +136,8 @@ A two-turn test uses the same action/expectation rhythm:
 
 To inject the second utterance while the first response is playing, replace the
 first `response` outcome with `response-start`. The final `response`
-expectation then proves that the second caller utterance reached the virtual
-agent and produced a later complete reply.
+expectation observes audio after the second injection. Correlate the provider's
+transcript to prove that the virtual agent recognized that utterance.
 
 Validate and list the plan without authenticating or placing a call:
 
@@ -145,7 +149,7 @@ Then run one selected test with Playwright-style `--config` selection:
 
 ```bash
 webex-test-caller run \
-  --destination 9999 \
+  --destination "$TEST_DESTINATION" \
   --config path/to/connector.spec.json \
   --test request-response
 ```
@@ -196,7 +200,7 @@ export WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_HOST=10.0.1.25
 export WEBEX_TEST_CALLER_GATEWAY_EVENTS_SSM_REGION=us-east-1
 
 webex-test-caller run \
-  --destination 9999 \
+  --destination "$TEST_DESTINATION" \
   --text 'Please transfer me to an agent.' \
   --expect-outcome transfer
 ```
@@ -231,31 +235,31 @@ the SSM tunnel above for the same gateway deployment being called.
 Run one test at a time against the dedicated non-production entry point:
 
 ```bash
-webex-test-caller run --destination 9999 \
+webex-test-caller run --destination "$TEST_DESTINATION" \
   --config config/gecx-regression.spec.json \
   --test normal-response
 
-webex-test-caller run --destination 9999 \
+webex-test-caller run --destination "$TEST_DESTINATION" \
   --config config/gecx-regression.spec.json \
   --test long-response
 
-webex-test-caller run --destination 9999 \
+webex-test-caller run --destination "$TEST_DESTINATION" \
   --config config/gecx-regression.spec.json \
   --test natural-pause
 
-webex-test-caller run --destination 9999 \
+webex-test-caller run --destination "$TEST_DESTINATION" \
   --config config/gecx-regression.spec.json \
   --test multi-turn-response
 
-webex-test-caller run --destination 9999 \
+webex-test-caller run --destination "$TEST_DESTINATION" \
   --config config/gecx-regression.spec.json \
   --test speak-during-playback
 
-webex-test-caller run --destination 9999 \
+webex-test-caller run --destination "$TEST_DESTINATION" \
   --config config/gecx-regression.spec.json \
   --test task-complete
 
-webex-test-caller run --destination 9999 \
+webex-test-caller run --destination "$TEST_DESTINATION" \
   --config config/gecx-regression.spec.json \
   --test transfer
 ```

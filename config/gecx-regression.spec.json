@@ -116,7 +116,7 @@
     {
       "id": "speak-during-playback",
       "title": "probes caller injection while GECX audio is playing",
-      "description": "Audio-plane probe only: the browser injects during playback and verifies the call remains healthy. Because streamed GECX chunks keep barge-in disabled until Phase 4, a green runner result does not prove that CES received the second utterance; correlate the CES transcript.",
+      "description": "Audio-plane probe only: the browser injects during playback and verifies the call remains healthy. A green runner result does not prove that the provider recognized the second utterance; correlate its transcript.",
       "steps": [
         {
           "name": "Request a detailed hotel description",

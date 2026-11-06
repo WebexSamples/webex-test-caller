@@ -58,6 +58,8 @@ class LocalRunServer:
                 """Never log the config response, which contains an access token."""
 
             def do_GET(self) -> None:  # noqa: N802
+                if not self._allow_local_request():
+                    return
                 if self.path == "/api/config":
                     payload = {
                         "accessToken": config.access_token,
@@ -94,11 +96,16 @@ class LocalRunServer:
                 super().do_GET()
 
             def do_POST(self) -> None:  # noqa: N802
+                if not self._allow_local_request():
+                    return
                 if self.path != "/api/events":
                     self.send_error(HTTPStatus.NOT_FOUND)
                     return
                 try:
                     content_length = int(self.headers.get("Content-Length", "0"))
+                    if not 0 < content_length <= 65536:
+                        self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                        return
                     payload = json.loads(self.rfile.read(content_length))
                     event = RunEvent(
                         name=str(payload["name"]),
@@ -113,10 +120,24 @@ class LocalRunServer:
                 self.send_response(HTTPStatus.NO_CONTENT)
                 self.end_headers()
 
+            def _allow_local_request(self) -> bool:
+                # Loopback binding alone does not reject DNS-rebinding hosts.
+                host = f"127.0.0.1:{self.server.server_port}"
+                if (
+                    self.headers.get("Host") != host
+                    or self.headers.get("Origin", f"http://{host}") != f"http://{host}"
+                    or self.headers.get("Sec-Fetch-Site", "none")
+                    not in {"none", "same-origin"}
+                ):
+                    self.send_error(HTTPStatus.FORBIDDEN)
+                    return False
+                return True
+
             def _write_json(self, payload: dict[str, Any]) -> None:
                 body = json.dumps(payload).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-store")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)

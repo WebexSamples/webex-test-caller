@@ -224,7 +224,9 @@ def complete_login(store: OAuthTokenStore, timeout_seconds: float) -> str:
     callback.start()
     try:
         print(
-            "Open this URL in the WxCC Admin Chrome profile and sign in as the dedicated Webex Calling test user:\n"
+            "Open this URL in a dedicated caller browser profile and sign in as "
+            "the Webex Calling test user (keep admin and answering-agent sessions "
+            "in separate profiles):\n"
         )
         print(
             authorization_url(

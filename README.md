@@ -7,6 +7,8 @@ BYOVA gateway checkout or running gateway is required for ordinary calling tests
 This is a source-installed reference application for controlled test calls. It
 uses a licensed Webex Calling user's line and that user's configured dial plan.
 It can dial an internal extension or an E.164 number reachable by that line.
+Use destinations you are authorized to test; normal Calling/PSTN charges may
+apply. Review the [security notes and dependency advisories](SECURITY.md) before use.
 
 ## Prerequisites
 
@@ -41,6 +43,7 @@ git clone https://github.com/WebexSamples/webex-test-caller.git
 cd webex-test-caller
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
 python -m playwright install chromium
 npm --prefix web ci
@@ -76,6 +79,10 @@ Keep this source checkout: editable installation and the browser build use its
    ```bash
    webex-test-caller login
    ```
+
+Use separate browser profiles for the OAuth caller, contact-center answering
+agent, and organization administrator. Signing out of one Webex application can
+affect other sessions in the same profile. No particular profile name is required.
 
 The user who grants OAuth consent determines the Calling line. The email setting
 is a login hint and operator reminder, not an identity assertion. The callback
@@ -141,12 +148,23 @@ prompt counts and maximum response latency. See the
 [sample plan](config/contact-center.spec.json).
 
 Results in `.artifacts/` record status, timing, destination redaction, input
-audio hashes, and browser events. Failed assertions exit nonzero.
+audio hashes, and browser events. Failed assertions exit nonzero. Artifacts can
+still include call, device, or conversation identifiers and diagnostic messages;
+review and sanitize them before sharing, even though the run's access token is
+redacted from browser diagnostics and events.
 
 Each completed speech injection requires increased outbound RTP packets/bytes
 and non-silent source audio energy/duration, recorded in `injection_finished`.
 These counters verify transmission by the browser, not recognition or receipt
 by a contact-center agent.
+
+To verify speech recognition, answer the test call in your contact-center agent
+desktop and compare its live transcript with the fixture's exact spoken text.
+Enable transcription for the intended test queue and configure the contact-center
+flow according to your provider's instructions. The caller does not enable or
+retrieve transcripts. A remote prompt boundary can occur during IVR or queue
+audio, before a human answers; allow enough lead-in time in the WAV fixture for
+the agent and transcription service to connect.
 
 Remote prompt detection measures audio activity; it does not transcribe or verify what the
 contact center said. Transfer assertions without gateway evidence prove only
@@ -186,12 +204,24 @@ client. Tests mock speech synthesis and never authorize or dial a real call.
 Live testing requires your configured caller, route, and destination.
 
 The inherited SDK dependency tree has outstanding audit advisories. See
-[dependency security status](SECURITY.md) for the extraction-time snapshot.
+[dependency security status](SECURITY.md) for the dated snapshot.
+
+## Known limits
+
+- Caller audio injection currently has a 30-second event timeout. Keep each
+  prepared fixture, including inserted silence, shorter than 30 seconds; the
+  overall call deadline also applies.
+- Timing is based on media activity, not agent-answer or ASR readiness. A
+  completed run does not by itself prove a transcript match or successful transfer.
+- This is a local single-caller tool. Do not expose its HTTP listeners, use it
+  as a hosted service, or treat it as a load-testing platform.
+
+For development setup, issue reports, and changes, see [Contributing](CONTRIBUTING.md).
 
 ## Origin and license
 
 Extracted from `webex/webex-byova-gateway-python` at commit
 [`eb2a1e3`](https://github.com/webex/webex-byova-gateway-python/commit/eb2a1e3)
-(`tools/byova_e2e/`), tracked under SE-2486. The original
+(`tools/byova_e2e/`). The original
 [Cisco Sample Code License](LICENSE) is retained. This sample is not supported
 by Cisco TAC or tested for production quality or performance.

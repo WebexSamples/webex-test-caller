@@ -2,6 +2,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from webex_test_caller.gateway_events import GatewayEventError
@@ -15,6 +16,7 @@ from webex_test_caller.models import (
     RunExpectation,
 )
 from webex_test_caller.runner import BrowserRunner, RunFailure
+from webex_test_caller.artifacts import write_artifact
 from playwright.sync_api import Error as PlaywrightError
 
 
@@ -162,6 +164,32 @@ class _EventServer:
 
     def next_event(self, _timeout: float) -> RunEvent | None:
         return self.events.pop(0) if self.events else None
+
+
+def test_sdk_token_is_redacted_from_diagnostics_and_persisted_events(tmp_path) -> None:
+    runner = BrowserRunner(tmp_path, _config(tmp_path))
+    runner._record_console("warning", "Authorization: Bearer test-token")
+    runner._record_failed_response(
+        SimpleNamespace(
+            url="https://example.com/test-token?authorization=test-token",
+            status=403,
+            request=SimpleNamespace(method="GET"),
+        )
+    )
+    server = _EventServer(
+        [RunEvent("error", 1, {"message": "Rejected test-token", "nested": ["test-token"]})]
+    )
+    with pytest.raises(RunFailure, match=r"Rejected \[REDACTED\]"):
+        runner._next_event(server, 1)
+    artifact = write_artifact(
+        tmp_path,
+        {
+            "diagnostics": runner.browser_diagnostics,
+            "events": [event.details for event in runner.events],
+        },
+    )
+    assert "test-token" not in artifact.read_text()
+    assert "[REDACTED]" in artifact.read_text()
 
 
 @pytest.mark.parametrize(

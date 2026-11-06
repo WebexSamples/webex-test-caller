@@ -5,6 +5,13 @@
 venv/
 .artifacts/
 .state/
+oauth-token.json
+*.wav
+*.aiff
+*.mp3
+*.log
+*.pem
+*.key
 .pytest_cache/
 __pycache__/
 *.py[cod]
