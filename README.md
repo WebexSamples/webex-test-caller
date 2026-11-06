@@ -197,10 +197,12 @@ source .venv/bin/activate
 python -m pytest -q
 npm --prefix web test
 npm --prefix web run build
+npm --prefix web audit --audit-level=high
 ```
 
-GitHub Actions runs the Python suite on 3.10 and 3.12 and builds/tests the browser
-client. Tests mock speech synthesis and never authorize or dial a real call.
+GitHub Actions runs the Python suite on 3.10 and 3.12, builds/tests the browser
+client, and rejects high or critical npm advisories. Tests mock speech synthesis
+and never authorize or dial a real call.
 Live testing requires your configured caller, route, and destination.
 
 The inherited SDK dependency tree has outstanding audit advisories. See

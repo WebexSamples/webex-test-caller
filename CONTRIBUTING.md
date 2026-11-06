@@ -12,6 +12,7 @@ Follow the [README setup](README.md#install), activate `.venv`, then run:
 python -m pytest -q
 npm --prefix web test
 npm --prefix web run build
+npm --prefix web audit --audit-level=high
 webex-test-caller validate --config config/contact-center.spec.json --list
 webex-test-caller validate --config config/gecx-regression.spec.json --list
 webex-test-caller validate --config config/local-audio-dtmf.spec.json --list

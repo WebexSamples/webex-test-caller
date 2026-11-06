@@ -30,22 +30,48 @@ controlled test calls. It is not a hosted service or a production softphone.
 
 ## Dependency security status
 
-As of November 6, 2026, `npm audit` reports 84 findings in the installed dependency
-tree: 3 critical, 8 high, 66 moderate, and 7 low. These are inherited dependencies;
-the extraction does not establish which vulnerable paths are reachable in the
-compiled browser client.
+As of November 6, 2026, a clean `npm ci` followed by `npm audit` reports
+55 findings: **0 critical, 0 high, 49 moderate, and 6 low**, down from 84 findings
+(including 3 critical and 8 high). npm includes dependent-package findings in
+these totals; the remaining findings originate in three packages below. This
+is not a clean dependency-audit claim or a complete reachability assessment.
 
-Vite was updated to 8.3.6 and Vitest to 4.1.12 during extraction. The Webex SDK
-packages remain at their original locked versions to preserve calling behavior.
-Remaining critical findings include `form-data`, `request`, and `shell-quote` in
-the SDK's transitive tree. Resolving the SDK dependency tree requires a separate
-compatibility review and live calling validation; a passing build is not that
-validation. No clean dependency-audit claim is made for this sample.
+The Calling and Webex SDK packages are synchronized at 3.13.0. The lockfile
+refreshes compatible transitive updates, and `web/package.json` contains
+these temporary overrides until upstream dependencies catch up:
 
-Recheck from `web/` with `npm audit`. The application is a local, source-installed
-test caller. Its HTTP servers bind to loopback, OAuth files are owner-readable
-only, and credentials are excluded from Git. Keep deployment identifiers, tokens,
-caller audio, and test artifacts out of commits.
+- Replace abandoned `request` with the maintained
+  [`@cypress/request` fork](https://github.com/cypress-io/request) at 4.0.1.
+  This also replaces its vulnerable cookie and multipart dependencies.
+- Use patched `ws` 8.22.1 and AJV 6.15.0 within their existing major versions.
+- Use UUID 11.1.1 for dependencies already using the named-export API (versions
+  7 through 10). Legacy SDK consumers require the old callable default export
+  and remain on their original versions.
+- Use patched Glob 14.0.4 and Minimatch 11.0.5 for Expo fingerprinting, a
+  transitive dependency of the full SDK. The browser caller does not run Expo
+  fingerprinting; compatibility tests exercise its glob and ignore-pattern APIs.
+
+Compatibility tests cover the HTTP callback/multipart API, both UUID export
+shapes, and fingerprint glob/ignore behavior. SDK updates also require a live
+Calling check; a passing build alone does not validate registration or media.
+Remove overrides when the SDK's dependency declarations adopt patched versions.
+
+Remaining upstream work:
+
+| Package | Advisory | Upgrade constraint |
+| --- | --- | --- |
+| `elliptic` | [GHSA-848j-6mx2-7j84](https://github.com/advisories/GHSA-848j-6mx2-7j84), low | No published patched version; inherited through browser crypto polyfills. Replacing cryptographic implementations requires a separate reviewed change. |
+| `file-type` | [GHSA-5v7r-6r5c-r473](https://github.com/advisories/GHSA-5v7r-6r5c-r473), moderate | The patch is in 21.3.1; the SDK HTTP client uses the older CommonJS `fromBuffer` API. A major-version override would break that API. |
+| legacy `uuid` | [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq), moderate | SDK/core and KMS consumers use a callable default export removed from patched UUID versions. The advisory concerns v3/v5/v6 output-buffer bounds; preserving v4 callers does not remove the installed advisory. |
+
+Recheck from `web/` with `npm audit`. CI runs `npm audit --audit-level=high`
+and fails for any high or critical finding; moderate and low findings remain
+visible in its output. No audit packages or advisories are excluded.
+
+The application is a local, source-installed test caller. Its HTTP servers bind
+to loopback, OAuth files are owner-readable only, and credentials are excluded
+from Git. Keep deployment identifiers, tokens, caller audio, and test artifacts
+out of commits.
 
 The local Python 3.12 environment was also checked with `pip-audit` on November 6,
 2026. It reported no known advisories across the installed third-party packages

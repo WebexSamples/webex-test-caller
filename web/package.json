@@ -11,13 +11,23 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@webex/calling": "3.12.0",
-    "webex": "3.12.0"
+    "@webex/calling": "3.13.0",
+    "webex": "3.13.0"
   },
   "devDependencies": {
     "typescript": "5.8.3",
     "vite": "8.3.6",
     "vite-plugin-node-polyfills": "^0.28.0",
     "vitest": "4.1.12"
+  },
+  "overrides": {
+    "request": "npm:@cypress/request@4.0.1",
+    "ws": "^8.22.1",
+    "uuid@>=7 <11.1.1": "^11.1.1",
+    "@expo/fingerprint": {
+      "glob": "^14.0.4",
+      "minimatch": "^11.0.5"
+    },
+    "ajv@^6": "^6.15.0"
   }
 }
