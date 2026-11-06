@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from webex_test_caller.audio import PreparedAudio
 from webex_test_caller.cli import (
     CLIError,
     _gateway_event_connection,
@@ -12,6 +11,7 @@ from webex_test_caller.cli import (
     main,
 )
 from webex_test_caller.models import (
+    AudioAsset,
     ExpectedOutcome,
     RunAction,
     RunDtmfAction,
@@ -59,6 +59,38 @@ def test_headed_mode_is_an_explicit_debug_opt_in() -> None:
     )
 
     assert not args.headless
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+@pytest.mark.parametrize("option", [
+    "prompt-timeout-seconds", "call-timeout-seconds", "response-timeout-seconds",
+    "post-audio-grace-seconds", "initial-silence-fallback-seconds",
+    "connected-observation-seconds",
+])
+def test_rejects_nonfinite_timing_before_authorization(option, value, monkeypatch):
+    def unexpected_authorization(*_args):
+        pytest.fail("Invalid timing must fail before requesting a token")
+
+    monkeypatch.setattr("webex_test_caller.cli.access_token_for_run", unexpected_authorization)
+    args = build_parser().parse_args([
+        "run", "--destination", "1234", "--text", "hello", f"--{option}={value}",
+    ])
+    with pytest.raises(CLIError, match="finite"):
+        _run(args)
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+def test_login_rejects_nonfinite_timeout_without_opening_callback(
+    value, monkeypatch, capsys
+):
+    def unexpected_login(*_args):
+        pytest.fail("Invalid timing must fail before starting OAuth")
+
+    monkeypatch.setattr("webex_test_caller.cli.complete_login", unexpected_login)
+    with pytest.raises(SystemExit) as result:
+        main(["login", f"--timeout-seconds={value}"])
+    assert result.value.code == 1
+    assert "must be finite" in capsys.readouterr().err
 
 
 def test_named_test_is_a_complete_audio_source() -> None:
@@ -163,7 +195,7 @@ def test_named_multi_turn_test_prepares_every_action(
     def fake_render_text(text, _voice, output_path):
         rendered_text.append(text)
         output_path.write_bytes(text.encode())
-        return PreparedAudio(output_path, str(len(rendered_text)) * 64, 1)
+        return AudioAsset(output_path, str(len(rendered_text)) * 64, 1)
 
     class FakeRunner:
         def __init__(self, _tool_root, config):
@@ -324,7 +356,7 @@ def test_gateway_event_url_enables_exact_outcome_assertions(
 
     def fake_render_text(text, _voice, output_path):
         output_path.write_bytes(text.encode())
-        return PreparedAudio(output_path, "1" * 64, 1)
+        return AudioAsset(output_path, "1" * 64, 1)
 
     class FakeRunner:
         def __init__(self, _tool_root, config):
@@ -370,7 +402,7 @@ def test_ssm_tunnel_supplies_loopback_gateway_event_url(
 
     def fake_render_text(text, _voice, output_path):
         output_path.write_bytes(text.encode())
-        return PreparedAudio(output_path, "1" * 64, 1)
+        return AudioAsset(output_path, "1" * 64, 1)
 
     class FakeRunner:
         def __init__(self, _tool_root, config):

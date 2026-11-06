@@ -4,26 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+
+from .models import AudioAsset
 
 TARGET_SAMPLE_RATE = 16_000
 
 
 class AudioPreparationError(RuntimeError):
     """Raised when a caller input cannot be rendered into a usable WAV."""
-
-
-@dataclass(frozen=True)
-class PreparedAudio:
-    """The normalised local-audio asset that the browser will inject."""
-
-    path: Path
-    sha256: str
-    duration_seconds: float
 
 
 def _read_mono(source: Path) -> np.ndarray:
@@ -48,21 +40,21 @@ def _read_mono(source: Path) -> np.ndarray:
     return mono
 
 
-def _write_samples(mono: np.ndarray, destination: Path) -> PreparedAudio:
+def _write_samples(mono: np.ndarray, destination: Path) -> AudioAsset:
     sf.write(destination, mono, TARGET_SAMPLE_RATE, subtype="PCM_16")
     digest = hashlib.sha256(destination.read_bytes()).hexdigest()
-    return PreparedAudio(
+    return AudioAsset(
         path=destination,
         sha256=digest,
         duration_seconds=len(mono) / TARGET_SAMPLE_RATE,
     )
 
 
-def _write_mono_pcm(source: Path, destination: Path) -> PreparedAudio:
+def _write_mono_pcm(source: Path, destination: Path) -> AudioAsset:
     return _write_samples(_read_mono(source), destination)
 
 
-def prepare_wav(source: Path, destination: Path) -> PreparedAudio:
+def prepare_wav(source: Path, destination: Path) -> AudioAsset:
     """Convert a caller-supplied WAV into one mono, 16 kHz PCM asset."""
     if not source.is_file():
         raise AudioPreparationError(f"WAV input does not exist: {source}")
@@ -93,7 +85,7 @@ def _render_raw_text(text: str, voice: str, raw_path: Path) -> None:
         )
 
 
-def render_text(text: str, voice: str, destination: Path) -> PreparedAudio:
+def render_text(text: str, voice: str, destination: Path) -> AudioAsset:
     """Render text with macOS `say` and normalise it for WebRTC playback."""
     raw_path = destination.with_suffix(".say.aiff")
     _render_raw_text(text, voice, raw_path)
@@ -105,7 +97,7 @@ def render_text_sequence(
     pause_ms: int,
     voice: str,
     destination: Path,
-) -> PreparedAudio:
+) -> AudioAsset:
     """Render speech segments separated by an exact sample-level pause."""
     if len(segments) < 2:
         raise AudioPreparationError("A text sequence requires at least two segments")

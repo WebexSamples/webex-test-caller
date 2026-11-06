@@ -247,8 +247,8 @@ def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "login":
-            if args.timeout_seconds <= 0:
-                raise CLIError("--timeout-seconds must be greater than zero")
+            if not math.isfinite(args.timeout_seconds) or args.timeout_seconds <= 0:
+                raise CLIError("--timeout-seconds must be finite and greater than zero")
             token_path = complete_login(_oauth_token_store(), args.timeout_seconds)
             print(f"Webex OAuth authorization saved locally at {token_path}")
             return
@@ -411,6 +411,18 @@ def _run(args: argparse.Namespace) -> None:
         raise CLIError("--remote-silence-ms must be greater than zero")
     if remote_prompt_occurrence <= 0:
         raise CLIError("--remote-prompt-occurrence must be greater than zero")
+    if not all(
+        math.isfinite(value)
+        for value in (
+            prompt_timeout_seconds,
+            call_timeout_seconds,
+            post_audio_grace_seconds,
+            response_timeout_seconds,
+            initial_silence_fallback_seconds,
+            connected_observation_seconds,
+        )
+    ):
+        raise CLIError("All timing values must be finite")
     if (
         min(
             prompt_timeout_seconds,
@@ -486,13 +498,7 @@ def _run(args: argparse.Namespace) -> None:
                         voice,
                         temp_path / f"caller-{action_index}.wav",
                     )
-                    audio_assets.append(
-                        AudioAsset(
-                            path=prepared_step.path,
-                            sha256=prepared_step.sha256,
-                            duration_seconds=prepared_step.duration_seconds,
-                        )
-                    )
+                    audio_assets.append(prepared_step)
                     audio_profiles.append(profile)
                     run_steps.append(
                         RunAction(audio_index=action_index, name=step.name)
@@ -537,13 +543,7 @@ def _run(args: argparse.Namespace) -> None:
                 voice,
                 temp_path / "caller-0.wav",
             )
-            audio_assets = [
-                AudioAsset(
-                    path=prepared_step.path,
-                    sha256=prepared_step.sha256,
-                    duration_seconds=prepared_step.duration_seconds,
-                )
-            ]
+            audio_assets = [prepared_step]
             audio_profiles = [profile]
             run_steps = []
 
@@ -631,7 +631,7 @@ def _prepare_input_step(
     step: InputStepDefinition,
     voice: str,
     output_path: Path,
-):
+) -> tuple[AudioAsset, dict[str, object]]:
     """Render or normalize one configured caller-audio action."""
     if step.text is not None:
         return render_text(step.text, voice, output_path), {"kind": "text"}

@@ -147,8 +147,9 @@ prompt counts and maximum response latency. See the
 [schema](config/webex-test-caller.schema.json) and
 [sample plan](config/contact-center.spec.json).
 
-Results in `.artifacts/` record status, timing, destination redaction, input
-audio hashes, and browser events. Failed assertions exit nonzero. Artifacts can
+Results in `.artifacts/` use unique, owner-only files and record status, timing,
+destination redaction, input audio hashes, and browser events. Failed assertions
+exit nonzero. Artifacts can
 still include call, device, or conversation identifiers and diagnostic messages;
 review and sanitize them before sharing, even though the run's access token is
 redacted from browser diagnostics and events.

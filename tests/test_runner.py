@@ -166,6 +166,43 @@ class _EventServer:
         return self.events.pop(0) if self.events else None
 
 
+@pytest.mark.parametrize("steps_mode", [False, True])
+def test_keeps_response_events_received_before_injection_receipt(tmp_path, monkeypatch, steps_mode):
+    server = _Server()
+    server.next_event = _EventServer([
+        RunEvent("frontend_ready", 0),
+        RunEvent("established", 1),
+        RunEvent("remote_audio_active", 2),
+        RunEvent("remote_audio_inactive", 3),
+        RunEvent("injection_finished", 4, {"injectionIndex": 0}),
+        RunEvent("disconnect", 5, {"initiatedByCaller": True}),
+    ]).next_event
+    page = _DialPage()
+    context = SimpleNamespace(new_page=lambda: page, close=lambda: None)
+    browser = SimpleNamespace(new_context=lambda **_kw: context, close=lambda: None)
+
+    @contextmanager
+    def fake_playwright():
+        yield SimpleNamespace(chromium=SimpleNamespace(launch=lambda **_kw: browser))
+
+    monkeypatch.setattr("webex_test_caller.runner.LocalRunServer", lambda *_args: server)
+    monkeypatch.setattr("webex_test_caller.runner.sync_playwright", fake_playwright)
+    runner = BrowserRunner(tmp_path, replace(
+        _config(tmp_path), require_remote_response=True, remote_silence_seconds=0,
+        response_timeout_seconds=0.1,
+        steps=(RunAction(0), RunExpectation(ExpectedOutcome.RESPONSE)) if steps_mode else (),
+    ))
+    monkeypatch.setattr(runner, "_build_frontend", lambda: tmp_path)
+    monkeypatch.setattr(runner, "_wait_for_prompt_end", lambda *_args: "fixture")
+
+    result = runner.run()
+
+    assert result["remote_response_observed"] is True
+    assert result["observed_remote_prompt_count"] == 1
+    assert page.commands == ["dial", "injectAudio", "endCall"]
+    assert server.closed
+
+
 def test_sdk_token_is_redacted_from_diagnostics_and_persisted_events(tmp_path) -> None:
     runner = BrowserRunner(tmp_path, _config(tmp_path))
     runner._record_console("warning", "Authorization: Bearer test-token")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 import time
 from collections import deque
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -112,16 +113,22 @@ class BrowserRunner:
                             "injectAudio",
                             {"index": 0, "trigger": trigger},
                         )
+                        concurrent_events: list[RunEvent] = []
+                        # shortcut: Injection waits are capped at 30s; use
+                        # duration-based waits before accepting longer fixtures.
                         injection_finished = self._wait_for(
                             server,
                             lambda event: event.name == "injection_finished",
                             self._bounded_timeout(30, deadline),
+                            concurrent_events=concurrent_events,
+                            description="caller audio 0",
                         )
                         finish_result = self._finish_call(
                             server,
                             page,
                             deadline,
                             injection_finished,
+                            prefetched_events=concurrent_events,
                         )
                     final_reason = str(finish_result["completion_reason"])
                     call_cleanup_required = False
@@ -282,7 +289,7 @@ class BrowserRunner:
         last_input: RunEvent | None = None
         first_action = True
         prior_response_active = False
-        events_during_injection: tuple[RunEvent, ...] = ()
+        events_during_injection: list[RunEvent] = []
 
         for step_index, step in enumerate(self.config.steps):
             if isinstance(step, RunAction):
@@ -297,10 +304,14 @@ class BrowserRunner:
                     "injectAudio",
                     {"index": audio_index, "trigger": trigger},
                 )
-                last_input, events_during_injection = self._wait_for_injection_finished(
+                events_during_injection = []
+                last_input = self._wait_for(
                     server,
-                    audio_index,
+                    lambda event: event.name == "injection_finished"
+                    and event.details.get("injectionIndex") == audio_index,
                     self._bounded_timeout(30, call_deadline),
+                    concurrent_events=events_during_injection,
+                    description=f"caller audio {audio_index}",
                 )
                 step_results.append(
                     {
@@ -335,9 +346,13 @@ class BrowserRunner:
                         "terminate": step.terminate,
                     },
                 )
-                last_input, events_during_injection = self._wait_for_dtmf_sent(
+                events_during_injection = []
+                last_input = self._wait_for(
                     server,
+                    lambda event: event.name == "dtmf_sent",
                     self._bounded_timeout(10, call_deadline),
+                    concurrent_events=events_during_injection,
+                    description="DTMF receipt",
                 )
                 step_results.append(
                     {
@@ -516,7 +531,7 @@ class BrowserRunner:
         server: LocalRunServer,
         call_deadline: float,
         *,
-        prefetched_events: tuple[RunEvent, ...] = (),
+        prefetched_events: Sequence[RunEvent] = (),
         ignore_current_prompt: bool = False,
     ) -> RunEvent:
         deadline = min(
@@ -548,56 +563,6 @@ class BrowserRunner:
                     "Call disconnected before remote response audio started"
                 )
         raise RunFailure("No remote response audio started after caller injection")
-
-    def _wait_for_injection_finished(
-        self,
-        server: LocalRunServer,
-        audio_index: int,
-        timeout: float,
-    ) -> tuple[RunEvent, tuple[RunEvent, ...]]:
-        """Wait for one caller asset while retaining concurrent remote events."""
-        deadline = time.monotonic() + timeout
-        concurrent_events: list[RunEvent] = []
-        while time.monotonic() < deadline:
-            event = self._next_event(server, min(0.2, deadline - time.monotonic()))
-            if event is None:
-                continue
-            if (
-                event.name == "injection_finished"
-                and event.details.get("injectionIndex") == audio_index
-            ):
-                return event, tuple(concurrent_events)
-            if event.name in {
-                "remote_audio_active",
-                "remote_audio_inactive",
-                "disconnect",
-            }:
-                concurrent_events.append(event)
-        raise RunFailure(
-            f"Timed out after {timeout:.1f}s waiting for caller audio {audio_index}"
-        )
-
-    def _wait_for_dtmf_sent(
-        self,
-        server: LocalRunServer,
-        timeout: float,
-    ) -> tuple[RunEvent, tuple[RunEvent, ...]]:
-        """Wait for the redacted DTMF receipt while retaining response events."""
-        deadline = time.monotonic() + timeout
-        concurrent_events: list[RunEvent] = []
-        while time.monotonic() < deadline:
-            event = self._next_event(server, min(0.2, deadline - time.monotonic()))
-            if event is None:
-                continue
-            if event.name == "dtmf_sent":
-                return event, tuple(concurrent_events)
-            if event.name in {
-                "remote_audio_active",
-                "remote_audio_inactive",
-                "disconnect",
-            }:
-                concurrent_events.append(event)
-        raise RunFailure(f"Timed out after {timeout:.1f}s waiting for DTMF receipt")
 
     @staticmethod
     def _scenario_result(
@@ -648,6 +613,8 @@ class BrowserRunner:
         page: Any,
         call_deadline: float,
         injection_finished: RunEvent,
+        *,
+        prefetched_events: Sequence[RunEvent] = (),
     ) -> dict[str, Any]:
         expected_outcome = self.config.expected_outcome
         require_response = (
@@ -665,6 +632,7 @@ class BrowserRunner:
                     expected_outcome == ExpectedOutcome.TRANSFER
                     and self.config.connected_observation_seconds == 0
                 ),
+                prefetched_events=prefetched_events,
             )
             gateway_terminal_event = self._assert_gateway_outcome(
                 expected_outcome or ExpectedOutcome.RESPONSE,
@@ -700,14 +668,18 @@ class BrowserRunner:
                         self.config.connected_observation_seconds,
                     )
         else:
+            pending = deque(prefetched_events)
             grace_deadline = min(
                 time.monotonic() + self.config.post_audio_grace_seconds,
                 call_deadline,
             )
             while time.monotonic() < grace_deadline:
-                event = self._next_event(
-                    server,
-                    min(0.2, grace_deadline - time.monotonic()),
+                event = (
+                    pending.popleft()
+                    if pending
+                    else self._next_event(
+                        server, min(0.2, grace_deadline - time.monotonic())
+                    )
                 )
                 if event and event.name == "disconnect":
                     return {
@@ -768,7 +740,7 @@ class BrowserRunner:
         wait_for_disconnect: bool = False,
         allow_disconnect: bool = False,
         expected_response_prompts: int | None = None,
-        prefetched_events: tuple[RunEvent, ...] = (),
+        prefetched_events: Sequence[RunEvent] = (),
         ignore_current_prompt: bool = False,
     ) -> ResponseObservation:
         required_prompts = (
@@ -908,14 +880,29 @@ class BrowserRunner:
             raise RunFailure(f"Browser command {command!r} failed: {error}") from error
 
     def _wait_for(
-        self, server: LocalRunServer, predicate: Any, timeout: float
+        self,
+        server: LocalRunServer,
+        predicate: Callable[[RunEvent], bool],
+        timeout: float,
+        *,
+        concurrent_events: list[RunEvent] | None = None,
+        description: str = "browser event",
     ) -> RunEvent:
+        """Wait for a receipt, optionally retaining concurrent response events."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             event = self._next_event(server, min(0.2, deadline - time.monotonic()))
-            if event and predicate(event):
+            if event is None:
+                continue
+            if predicate(event):
                 return event
-        raise RunFailure(f"Timed out after {timeout:.1f}s waiting for browser event")
+            if concurrent_events is not None and event.name in {
+                "remote_audio_active",
+                "remote_audio_inactive",
+                "disconnect",
+            }:
+                concurrent_events.append(event)
+        raise RunFailure(f"Timed out after {timeout:.1f}s waiting for {description}")
 
     def _next_event(self, server: LocalRunServer, timeout: float) -> RunEvent | None:
         event = server.next_event(max(timeout, 0.01))

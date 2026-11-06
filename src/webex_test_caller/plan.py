@@ -261,34 +261,18 @@ def _parse_input_step(
     raw: Any, location: str, source_file: Path
 ) -> InputStepDefinition:
     step = _object(raw, location)
-    _reject_unknown(
-        step,
-        {
-            "name",
-            "action",
-            "text",
-            "segments",
-            "pauseMs",
-            "path",
-            "digit",
-            "durationMs",
-            "terminate",
-        },
-        location,
-    )
     name = _optional_nonempty_string(step.get("name"), f"{location}.name")
     action = _nonempty_string(step.get("action"), f"{location}.action")
     if action == "speak":
+        _reject_unknown(
+            step, {"name", "action", "text", "segments", "pauseMs"}, location
+        )
         has_text = "text" in step
         has_segments = "segments" in step
         if has_text == has_segments:
             raise TestPlanError(
                 f"{location} with action 'speak' must define exactly one of "
                 "text or segments"
-            )
-        if "path" in step or "digit" in step:
-            raise TestPlanError(
-                f"{location} with action 'speak' does not accept path or digit"
             )
         if has_text:
             if "pauseMs" in step:
@@ -315,21 +299,13 @@ def _parse_input_step(
             ),
         )
     if action == "play":
-        if any(field in step for field in ("text", "segments", "pauseMs", "digit")):
-            raise TestPlanError(
-                f"{location} with action 'play' only accepts name, action, and path"
-            )
+        _reject_unknown(step, {"name", "action", "path"}, location)
         wav_value = _nonempty_string(step.get("path"), f"{location}.path")
         wav = Path(wav_value).expanduser()
         if not wav.is_absolute():
             wav = source_file.parent / wav
         return InputStepDefinition(name=name, wav=wav.resolve())
     if action == "dtmf":
-        if any(field in step for field in ("text", "segments", "pauseMs", "path")):
-            raise TestPlanError(
-                f"{location} with action 'dtmf' only accepts name, action, digit, "
-                "durationMs, and terminate"
-            )
         _reject_unknown(
             step,
             {"name", "action", "digit", "durationMs", "terminate"},
@@ -430,9 +406,7 @@ def _parse_use(raw: Any, location: str) -> dict[str, Any]:
     parsed: dict[str, Any] = {}
     for field, raw_value in value.items():
         field_location = f"{location}.{field}"
-        if field == "voice":
-            parsed[field] = _nonempty_string(raw_value, field_location)
-        elif field == "gatewayAgentId":
+        if field in {"voice", "gatewayAgentId"}:
             parsed[field] = _nonempty_string(raw_value, field_location)
         elif field == "gatewayTransport":
             transport = _nonempty_string(raw_value, field_location).lower()
@@ -447,11 +421,6 @@ def _parse_use(raw: Any, location: str) -> dict[str, Any]:
             parsed[field] = _positive_integer(raw_value, field_location)
         elif field == "initialSilenceFallbackSeconds":
             parsed[field] = _nonnegative_number(raw_value, field_location)
-        elif field == "maxPromptWaitSeconds":
-            number = _positive_number(raw_value, field_location)
-            if not math.isfinite(number):
-                raise TestPlanError(f"{field_location} must be finite")
-            parsed[field] = number
         else:
             parsed[field] = _positive_number(raw_value, field_location)
     return parsed
@@ -494,7 +463,13 @@ def _positive_integer(value: Any, location: str) -> int:
 def _number(value: Any, location: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise TestPlanError(f"{location} must be a number")
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError as error:
+        raise TestPlanError(f"{location} must be finite") from error
+    if not math.isfinite(number):
+        raise TestPlanError(f"{location} must be finite")
+    return number
 
 
 def _nonnegative_number(value: Any, location: str) -> float:

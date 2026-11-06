@@ -125,6 +125,27 @@ def test_resolves_play_fixture_relative_to_config(tmp_path: Path) -> None:
     assert selected_test.wav == (tmp_path / "fixtures/request.wav").resolve()
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf"), 10**400])
+@pytest.mark.parametrize("field", ["callTimeoutSeconds", "initialSilenceFallbackSeconds"])
+def test_rejects_nonfinite_plan_timings(tmp_path, field, value):
+    path = _write_plan(tmp_path, test_updates={"use": {field: value}})
+    with pytest.raises(PlanError, match=field + " must be finite"):
+        load_plan(path)
+
+
+@pytest.mark.parametrize(
+    "action,source", [("speak", {"text": "Hello"}), ("play", {"path": "a.wav"})]
+)
+@pytest.mark.parametrize("extra", [{"durationMs": 500}, {"terminate": True}])
+def test_rejects_dtmf_fields_on_audio_actions(tmp_path, action, source, extra):
+    path = _write_plan(tmp_path, steps=[
+        {"action": action, **source, **extra},
+        {"expect": {"outcome": "response"}},
+    ])
+    with pytest.raises(PlanError, match="unknown field"):
+        load_plan(path)
+
+
 def test_loads_ordered_multi_injection_steps(tmp_path: Path) -> None:
     path = _write_plan(
         tmp_path,
@@ -342,7 +363,7 @@ def test_rejects_step_order_that_runner_cannot_execute(tmp_path: Path) -> None:
         ],
     )
 
-    with pytest.raises(PlanError, match=r"unknown field\(s\): expect"):
+    with pytest.raises(PlanError, match=r"steps\[0\]\.action must be a non-empty string"):
         load_test("sample", path)
 
 

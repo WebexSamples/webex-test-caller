@@ -3,6 +3,7 @@
 This is a Cisco sample application for controlled contact-center tests. The
 [Cisco Sample Code License](LICENSE) applies; this sample is not supported by
 Cisco TAC. Keep changes focused and include the checks needed to reproduce them.
+Agent-assisted work follows [AGENTS.md](AGENTS.md).
 
 ## Development
 
