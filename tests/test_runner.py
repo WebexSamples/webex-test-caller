@@ -164,6 +164,44 @@ class _EventServer:
         return self.events.pop(0) if self.events else None
 
 
+@pytest.mark.parametrize(
+    "max_wait,event_name,call_deadline,expected",
+    [
+        (2.0, "remote_audio_active", 10.0, "max_prompt_wait"),
+        (2.0, "remote_audio_inactive", 10.0, "remote_prompt"),
+        (None, "remote_audio_active", 10.0, "timeout"),
+        (2.0, "remote_audio_active", 2.0, "timeout"),
+        (2.0, "disconnect", 10.0, "disconnect"),
+    ],
+)
+def test_initial_prompt_gate_with_continuous_audio(
+    tmp_path, monkeypatch, max_wait, event_name, call_deadline, expected
+) -> None:
+    now = [0.0]
+    monkeypatch.setattr("webex_test_caller.runner.time.monotonic", lambda: now[0])
+
+    class TimedServer:
+        def next_event(self, timeout):
+            now[0] += timeout
+            # Every run starts with real remote activity, followed by the scenario.
+            name = "remote_audio_active" if now[0] <= 0.2 else event_name
+            return RunEvent(name, now[0])
+
+    config = replace(
+        _config(tmp_path),
+        max_prompt_wait_seconds=max_wait,
+        prompt_timeout_seconds=3.0,
+        initial_silence_fallback_seconds=0,
+    )
+    runner = BrowserRunner(tmp_path, config)
+    if expected in {"timeout", "disconnect"}:
+        with pytest.raises(RunFailure, match="disconnected" if expected == "disconnect" else "timeout"):
+            runner._wait_for_prompt_end(TimedServer(), call_deadline)
+    else:
+        assert runner._wait_for_prompt_end(TimedServer(), call_deadline) == expected
+        assert now[0] <= 2.2
+
+
 class _CommandPage:
     def __init__(self) -> None:
         self.commands: list[dict[str, object]] = []

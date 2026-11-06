@@ -40,6 +40,17 @@ def test_live_runs_have_no_cli_browser_override_by_default() -> None:
     )
 
     assert args.headless is None
+    assert args.max_prompt_wait_seconds is None
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "60"])
+def test_rejects_invalid_maximum_prompt_wait(value: str) -> None:
+    args = build_parser().parse_args(
+        ["run", "--destination", "1234", "--text", "hello", "--max-prompt-wait-seconds", value]
+    )
+
+    with pytest.raises(CLIError, match="max-prompt-wait-seconds"):
+        _run(args)
 
 
 def test_headed_mode_is_an_explicit_debug_opt_in() -> None:
@@ -178,6 +189,8 @@ def test_named_multi_turn_test_prepares_every_action(
             str(config_file),
             "--test",
             "multi-turn",
+            "--max-prompt-wait-seconds",
+            "2.5",
         ]
     )
 
@@ -185,6 +198,7 @@ def test_named_multi_turn_test_prepares_every_action(
 
     assert rendered_text == ["I need a hotel.", "A queen room, please."]
     assert captured_config is not None
+    assert captured_config.max_prompt_wait_seconds == 2.5
     assert len(captured_config.prepared_audio()) == 2
     assert captured_config.steps == (
         RunAction(0),

@@ -70,6 +70,7 @@ class RunConfig:
     call_timeout_seconds: float
     post_audio_grace_seconds: float
     remote_prompt_occurrence: int = 1
+    max_prompt_wait_seconds: float | None = None
     require_remote_response: bool = False
     response_timeout_seconds: float = 30.0
     expected_outcome: ExpectedOutcome | None = None

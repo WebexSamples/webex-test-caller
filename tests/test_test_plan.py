@@ -97,6 +97,20 @@ def test_load_plan_records_order_and_content_hash(tmp_path: Path) -> None:
     assert plan.tests[0].config_sha256 == plan.config_sha256
 
 
+def test_loads_maximum_prompt_wait(tmp_path: Path) -> None:
+    path = _write_plan(tmp_path, test_updates={"use": {"maxPromptWaitSeconds": 10}})
+
+    assert load_test("sample", path).max_prompt_wait_seconds == 10
+
+
+@pytest.mark.parametrize("value", [0, -1, True, float("nan"), float("inf"), 60])
+def test_rejects_invalid_maximum_prompt_wait(tmp_path: Path, value) -> None:
+    path = _write_plan(tmp_path, test_updates={"use": {"maxPromptWaitSeconds": value}})
+
+    with pytest.raises(PlanError, match="maxPromptWaitSeconds"):
+        load_test("sample", path)
+
+
 def test_resolves_play_fixture_relative_to_config(tmp_path: Path) -> None:
     path = _write_plan(
         tmp_path,

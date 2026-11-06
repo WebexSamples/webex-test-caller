@@ -2,6 +2,7 @@ import CallingPackage from "webex/calling";
 import { LocalMicrophoneStream } from "@webex/calling";
 
 import { calculateRms } from "./audio-level";
+import { readOutboundAudio, verifyAudioDelivery, type OutboundAudio } from "./audio-delivery";
 import { validateDtmfDigit } from "./dtmf";
 import { unwrapDefaultExport } from "./module-interop";
 
@@ -81,6 +82,8 @@ type CallingCall = {
         audio?: {
           sender?: {
             dtmf?: DtmfSender;
+            getStats: () => Promise<RTCStatsReport>;
+            track: MediaStreamTrack | null;
           };
         };
       };
@@ -291,8 +294,8 @@ class CallingMediaClient {
   }
 
   async injectAudio(request: string | InjectionRequest = {}): Promise<void> {
-    if (!this.call) {
-      throw new Error("Cannot inject audio before dialing");
+    if (!this.call || !this.callEstablished) {
+      throw new Error("Cannot inject audio before call media is established");
     }
     const injection = typeof request === "string" ? { trigger: request } : request;
     const index = injection.index ?? 0;
@@ -316,21 +319,48 @@ class CallingMediaClient {
     }
     const buffer = await response.arrayBuffer();
     const audio = await this.audioContext.decodeAudioData(buffer);
+    const sender = this.call.mediaConnection?.mediaConnection?.transceivers?.audio?.sender;
+    if (!sender?.getStats) {
+      throw new Error("WebRTC audio sender statistics are unavailable");
+    }
+    if (sender.track?.id !== this.destinationNode.stream.getAudioTracks()[0].id) {
+      throw new Error("Injected audio track is not the outgoing WebRTC track");
+    }
+    const before = await readOutboundAudio(sender);
     const source = this.audioContext.createBufferSource();
     source.buffer = audio;
     source.connect(this.destinationNode);
     source.addEventListener(
       "ended",
-      () => void report("injection_finished", { injectionIndex: index }),
+      () => void this.finishInjection(index, sender, before).catch(
+        (error: unknown) => this.reportError(error),
+      ),
       { once: true },
     );
     updateStatus("Injecting prepared caller audio.");
-    void report("injection_started", {
+    await report("injection_started", {
       durationSeconds: audio.duration,
       injectionIndex: index,
       trigger,
+      senderTrackMatches: true,
     });
     source.start();
+  }
+
+  private async finishInjection(
+    index: number,
+    sender: Pick<RTCRtpSender, "getStats">,
+    before: OutboundAudio,
+  ): Promise<void> {
+    if (!this.callEstablished) {
+      throw new Error("Call disconnected before caller speech finished");
+    }
+    const delivery = verifyAudioDelivery(before, await readOutboundAudio(sender));
+    await report("injection_finished", {
+      injectionIndex: index,
+      outboundAudioVerified: true,
+      ...delivery,
+    });
   }
 
   async sendDtmf(request: DtmfRequest): Promise<void> {

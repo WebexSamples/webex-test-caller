@@ -50,6 +50,11 @@
           "type": "number",
           "minimum": 0
         },
+        "maxPromptWaitSeconds": {
+          "description": "Opt-in limit on waiting for the initial prompt; input may overlap remote audio. Must be less than promptTimeoutSeconds.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "promptTimeoutSeconds": {
           "type": "number",
           "exclusiveMinimum": 0

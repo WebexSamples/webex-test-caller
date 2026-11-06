@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import re
 import sys
@@ -126,6 +127,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inject after this long with no observed remote speech; set to 0 to disable",
     )
     run.add_argument("--prompt-timeout-seconds", type=float, default=None)
+    run.add_argument(
+        "--max-prompt-wait-seconds",
+        type=float,
+        default=None,
+        help="Send initial input after this wait even if remote audio stays active (opt-in)",
+    )
     run.add_argument("--call-timeout-seconds", type=float, default=None)
     run.add_argument("--post-audio-grace-seconds", type=float, default=None)
     run.add_argument(
@@ -337,6 +344,9 @@ def _run(args: argparse.Namespace) -> None:
         "prompt_timeout_seconds",
         60.0,
     )
+    max_prompt_wait_seconds = _configured(
+        args.max_prompt_wait_seconds, selected_test, "max_prompt_wait_seconds", None
+    )
     call_timeout_seconds = _configured(
         args.call_timeout_seconds, selected_test, "call_timeout_seconds", 120.0
     )
@@ -413,6 +423,15 @@ def _run(args: argparse.Namespace) -> None:
         raise CLIError("All timeout values must be greater than zero")
     if initial_silence_fallback_seconds < 0:
         raise CLIError("--initial-silence-fallback-seconds cannot be negative")
+    if max_prompt_wait_seconds is not None and (
+        not math.isfinite(max_prompt_wait_seconds)
+        or max_prompt_wait_seconds <= 0
+        or max_prompt_wait_seconds >= prompt_timeout_seconds
+    ):
+        raise CLIError(
+            "--max-prompt-wait-seconds must be finite, greater than zero, "
+            "and less than --prompt-timeout-seconds"
+        )
     if connected_observation_seconds < 0:
         raise CLIError("--connected-observation-seconds cannot be negative")
     if expected_response_prompts <= 0:
@@ -543,6 +562,7 @@ def _run(args: argparse.Namespace) -> None:
             call_timeout_seconds=call_timeout_seconds,
             post_audio_grace_seconds=post_audio_grace_seconds,
             remote_prompt_occurrence=remote_prompt_occurrence,
+            max_prompt_wait_seconds=max_prompt_wait_seconds,
             require_remote_response=args.require_remote_response,
             response_timeout_seconds=response_timeout_seconds,
             expected_outcome=expected_outcome,
@@ -580,6 +600,7 @@ def _run(args: argparse.Namespace) -> None:
             "prompt_profile": {
                 "remote_prompt_occurrence": config.remote_prompt_occurrence,
                 "remote_silence_ms": round(config.remote_silence_seconds * 1000),
+                "max_prompt_wait_seconds": config.max_prompt_wait_seconds,
             },
             "browser_profile": {"headless": config.headless},
             "gateway_event_profile": {

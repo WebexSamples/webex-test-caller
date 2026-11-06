@@ -232,6 +232,11 @@ class BrowserRunner:
             if self.config.initial_silence_fallback_seconds > 0
             else None
         )
+        max_wait_deadline = (
+            time.monotonic() + self.config.max_prompt_wait_seconds
+            if self.config.max_prompt_wait_seconds is not None
+            else None
+        )
         while time.monotonic() < deadline:
             event = self._next_event(server, min(0.2, deadline - time.monotonic()))
             if event:
@@ -239,9 +244,16 @@ class BrowserRunner:
                     gate.remote_audio_active()
                 elif event.name == "remote_audio_inactive":
                     gate.remote_audio_inactive(time.monotonic())
+                elif event.name == "disconnect":
+                    raise RunFailure("Call disconnected before initial caller input")
+            if time.monotonic() >= deadline:
+                break
             if gate.ready_to_inject(time.monotonic()):
                 gate.mark_injected()
                 return "remote_prompt"
+            if max_wait_deadline is not None and time.monotonic() >= max_wait_deadline:
+                gate.mark_injected()
+                return "max_prompt_wait"
             if (
                 fallback_deadline is not None
                 and not gate.remote_activity_observed

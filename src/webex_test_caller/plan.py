@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from hashlib import sha256
@@ -19,6 +20,7 @@ USE_FIELDS = {
     "remoteSilenceMs",
     "remotePromptOccurrence",
     "initialSilenceFallbackSeconds",
+    "maxPromptWaitSeconds",
     "promptTimeoutSeconds",
     "callTimeoutSeconds",
     "postAudioGraceSeconds",
@@ -79,6 +81,7 @@ class TestDefinition:
     remote_silence_ms: int | None = None
     remote_prompt_occurrence: int | None = None
     initial_silence_fallback_seconds: float | None = None
+    max_prompt_wait_seconds: float | None = None
     prompt_timeout_seconds: float | None = None
     call_timeout_seconds: float | None = None
     post_audio_grace_seconds: float | None = None
@@ -215,6 +218,13 @@ def _parse_test(
     if not isinstance(first_input, InputStepDefinition):
         raise AssertionError("validated test must start with an input action")
 
+    if merged_use.get("maxPromptWaitSeconds", 0) >= merged_use.get(
+        "promptTimeoutSeconds", 60.0
+    ):
+        raise TestPlanError(
+            f"{location}.use.maxPromptWaitSeconds must be less than promptTimeoutSeconds"
+        )
+
     return TestDefinition(
         test_id=test_id,
         title=title,
@@ -233,6 +243,7 @@ def _parse_test(
         initial_silence_fallback_seconds=merged_use.get(
             "initialSilenceFallbackSeconds"
         ),
+        max_prompt_wait_seconds=merged_use.get("maxPromptWaitSeconds"),
         prompt_timeout_seconds=merged_use.get("promptTimeoutSeconds"),
         call_timeout_seconds=merged_use.get("callTimeoutSeconds"),
         post_audio_grace_seconds=merged_use.get("postAudioGraceSeconds"),
@@ -436,6 +447,11 @@ def _parse_use(raw: Any, location: str) -> dict[str, Any]:
             parsed[field] = _positive_integer(raw_value, field_location)
         elif field == "initialSilenceFallbackSeconds":
             parsed[field] = _nonnegative_number(raw_value, field_location)
+        elif field == "maxPromptWaitSeconds":
+            number = _positive_number(raw_value, field_location)
+            if not math.isfinite(number):
+                raise TestPlanError(f"{field_location} must be finite")
+            parsed[field] = number
         else:
             parsed[field] = _positive_number(raw_value, field_location)
     return parsed

@@ -115,6 +115,21 @@ remote audio starts, it injects after 10 seconds; set
 `--initial-silence-fallback-seconds 0` to require a prompt. If ringback precedes
 the greeting, `--remote-prompt-occurrence 2` waits for the second audio epoch.
 
+If the route plays continuous audio, opt into a bounded prompt wait:
+
+```bash
+webex-test-caller run --destination "$TEST_DESTINATION" \
+  --text 'Hello, this is an automated Webex test call.' \
+  --max-prompt-wait-seconds 10
+```
+
+This sends the first input after a quiet prompt boundary or, at the latest,
+10 seconds after media establishment. It can overlap remote audio. The limit
+must be positive and less than `--prompt-timeout-seconds`; the overall call
+deadline still applies. JSON plans can set `use.maxPromptWaitSeconds`.
+This fallback is disabled by default, preserving strict prompt assertions.
+The injection event records `max_prompt_wait` when the limit releases speech.
+
 ## Test plans and evidence
 
 Version 1 JSON plans contain named tests with alternating actions and expectations.
@@ -126,8 +141,14 @@ prompt counts and maximum response latency. See the
 [sample plan](config/contact-center.spec.json).
 
 Results in `.artifacts/` record status, timing, destination redaction, input
-audio hashes, and browser events. Failed assertions exit nonzero. Remote prompt
-detection measures audio activity; it does not transcribe or verify what the
+audio hashes, and browser events. Failed assertions exit nonzero.
+
+Each completed speech injection requires increased outbound RTP packets/bytes
+and non-silent source audio energy/duration, recorded in `injection_finished`.
+These counters verify transmission by the browser, not recognition or receipt
+by a contact-center agent.
+
+Remote prompt detection measures audio activity; it does not transcribe or verify what the
 contact center said. Transfer assertions without gateway evidence prove only
 the configured audio/disconnect sequence, not a successful agent handoff.
 
